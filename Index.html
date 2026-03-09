@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <base target="_top">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>閃電記帳 - 多人版</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        .pb-safe {
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+
+        ::-webkit-scrollbar {
+            display: none;
+        }
+    </style>
+</head>
+
+<body class="bg-slate-50 text-slate-800 font-sans antialiased">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useRef, useEffect } = React;
+
+        const Icons = {
+            Home: ({ className }) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>,
+            PlusCircle: ({ className }) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="16" /><line x1="8" y1="12" x2="16" y2="12" /></svg>,
+            Receipt: ({ className }) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z" /><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8" /><path d="M12 17.5v-11" /></svg>,
+            Camera: ({ className }) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" /><circle cx="12" cy="13" r="3" /></svg>,
+            Check: ({ className }) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="20 6 9 17 4 12" /></svg>,
+            Wallet: ({ className }) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" /><path d="M3 5v14a2 2 0 0 0 2 2h16v-5" /><path d="M18 12a2 2 0 0 0 0 4h4v-4Z" /></svg>,
+            History: ({ className }) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /><path d="M12 7v5l4 2" /></svg>,
+            Users: ({ className }) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>,
+            RefreshCw: ({ className }) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /><path d="M21 12a9 9 0 1 0-9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" /><path d="M16 16h5v5" /></svg>,
+            Loader2: ({ className }) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg>,
+            Settings: ({ className }) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" /><circle cx="12" cy="12" r="3" /></svg>,
+            Copy: ({ className }) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect width="14" height="14" x="8" y="8" rx="2" ry="2" /><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /></svg>,
+            UserPlus: ({ className }) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><line x1="19" x2="19" y1="8" y2="14" /><line x1="22" x2="16" y1="11" y2="11" /></svg>,
+            Lock: ({ className }) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>,
+            Trash2: ({ className }) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></svg>
+        };
+
+        function App() {
+            const [activeTab, setActiveTab] = useState('dashboard');
+            const [transactions, setTransactions] = useState([]);
+            const [users, setUsers] = useState([{ id: 'u1', name: '勛' }, { id: 'u2', name: '孟' }]);
+
+            const [isLoadingData, setIsLoadingData] = useState(true);
+            const [isRefreshing, setIsRefreshing] = useState(false);
+            const [accessDenied, setAccessDenied] = useState(false); // 新增：權限阻擋狀態
+
+            // 表單與編輯狀態
+            const [amount, setAmount] = useState('');
+            const [description, setDescription] = useState('');
+            const [paidBy, setPaidBy] = useState('u1');
+            const [splitType, setSplitType] = useState('equal');
+            const [customShares, setCustomShares] = useState({});
+            const [editingTxId, setEditingTxId] = useState(null);
+            const [isRecognizing, setIsRecognizing] = useState(false);
+            const fileInputRef = useRef(null);
+
+            const [newUserName, setNewUserName] = useState('');
+
+            // 取得/重整 遠端資料
+            const fetchServerData = (silent = false) => {
+                if (!silent) setIsLoadingData(true);
+                else setIsRefreshing(true);
+
+                setAccessDenied(false); // 每次嘗試抓取前先重置阻擋狀態
+
+                if (typeof google !== 'undefined') {
+                    google.script.run
+                        .withSuccessHandler((data) => {
+                            setUsers(data.users);
+                            setTransactions(data.transactions);
+                            if (data.users.length > 0 && !paidBy) setPaidBy(data.users[0].id);
+                            if (!silent) setIsLoadingData(false);
+                            else setIsRefreshing(false);
+                        })
+                        .withFailureHandler((err) => {
+                            console.error("載入失敗，可能無權限:", err);
+                            setAccessDenied(true); // 發生錯誤（無權限）時，觸發阻擋畫面
+                            if (!silent) setIsLoadingData(false);
+                            else setIsRefreshing(false);
+                        })
+                        .getInitialData();
+                } else {
+                    // 本地開發模擬
+                    setTimeout(() => {
+                        if (!silent) setIsLoadingData(false);
+                        else setIsRefreshing(false);
+                    }, 600);
+                }
+            };
+
+            useEffect(() => {
+                fetchServerData();
+            }, []);
+
+            // 計算結算餘額
+            const calculateBalances = () => {
+                let balances = {};
+                users.forEach(u => balances[u.id] = 0);
+
+                const lastSettlementIdx = transactions.findIndex(t => t.splitType === 'settlement');
+                const activeTxs = lastSettlementIdx >= 0 ? transactions.slice(0, lastSettlementIdx) : transactions;
+
+                activeTxs.forEach(t => {
+                    if (balances[t.paidBy] !== undefined) balances[t.paidBy] += t.amount;
+
+                    if (t.splitType === 'equal' || t.splitType === '50/50') {
+                        const share = t.amount / users.length;
+                        users.forEach(u => balances[u.id] -= share);
+                    } else if (t.splitType === 'custom') {
+                        Object.keys(t.shares || {}).forEach(uid => {
+                            if (balances[uid] !== undefined) balances[uid] -= (t.shares[uid] || 0);
+                        });
+                    }
+                });
+                return balances;
+            };
+
+            const balances = calculateBalances();
+            const needsSettlement = Object.values(balances).some(b => Math.abs(b) > 0.1);
+
+            // 檢查是否已鎖定(結清)
+            const lastSettlementDate = transactions.find(t => t.splitType === 'settlement')?.date;
+            const isSettled = (txDate) => lastSettlementDate && new Date(txDate) <= new Date(lastSettlementDate);
+
+            const resetForm = () => {
+                setAmount('');
+                setDescription('');
+                setSplitType('equal');
+                setCustomShares({});
+                setEditingTxId(null);
+            };
+
+            const handleShareChange = (uid, val) => {
+                setCustomShares(prev => ({ ...prev, [uid]: val }));
+            };
+
+            // 儲存（新增 或 修改）
+            const handleAddTransaction = (e) => {
+                e.preventDefault();
+                const numAmount = parseFloat(amount);
+                if (!numAmount || isNaN(numAmount) || numAmount <= 0) return;
+
+                let sharesToSave = null;
+
+                if (splitType === 'custom') {
+                    const totalShares = users.reduce((sum, u) => sum + parseFloat(customShares[u.id] || 0), 0);
+                    if (totalShares !== numAmount) {
+                        alert(`分攤金額加總 ($${totalShares}) 必須等於總金額 ($${numAmount})！`);
+                        return;
+                    }
+                    sharesToSave = {};
+                    users.forEach(u => {
+                        sharesToSave[u.id] = parseFloat(customShares[u.id] || 0);
+                    });
+                }
+
+                const newTx = {
+                    id: editingTxId || Date.now().toString(),
+                    amount: numAmount,
+                    description: description || '未命名項目',
+                    paidBy,
+                    splitType,
+                    ...(sharesToSave && { shares: sharesToSave }),
+                    date: editingTxId ? transactions.find(t => t.id === editingTxId).date : new Date().toISOString()
+                };
+
+                if (editingTxId) {
+                    // 修改模式
+                    setTransactions(transactions.map(t => t.id === editingTxId ? newTx : t));
+                    if (typeof google !== 'undefined') google.script.run.updateTransaction(newTx);
+                } else {
+                    // 新增模式
+                    setTransactions([newTx, ...transactions]);
+                    if (typeof google !== 'undefined') google.script.run.addTransaction(newTx);
+                }
+
+                resetForm();
+                setActiveTab('dashboard');
+            };
+
+            // 進入編輯模式
+            const handleEditClick = (tx) => {
+                if (isSettled(tx.date) || tx.splitType === 'settlement') return;
+                setEditingTxId(tx.id);
+                setAmount(tx.amount.toString());
+                setDescription(tx.description);
+
+                const userExists = users.some(u => u.id === tx.paidBy);
+                setPaidBy(userExists ? tx.paidBy : users[0].id);
+
+                const type = (tx.splitType === '50/50' || tx.splitType === 'equal') ? 'equal' : 'custom';
+                setSplitType(type);
+
+                if (type === 'custom' && tx.shares) {
+                    const sharesStr = {};
+                    Object.keys(tx.shares).forEach(k => sharesStr[k] = tx.shares[k].toString());
+                    setCustomShares(sharesStr);
+                } else {
+                    setCustomShares({});
+                }
+                setActiveTab('add');
+            };
+
+            // 從編輯狀態直接「複製」成一筆新的紀錄
+            const handleCopyFromEdit = () => {
+                setEditingTxId(null);
+                alert("已解除修改狀態，現在儲存將建立一筆全新的紀錄。");
+            };
+
+            // 刪除紀錄
+            const handleDelete = () => {
+                if (!editingTxId) return;
+                if (window.confirm("確定要刪除這筆紀錄嗎？這將會從資料庫中永久移除。")) {
+                    setTransactions(transactions.filter(t => t.id !== editingTxId));
+                    if (typeof google !== 'undefined') google.script.run.deleteTransaction(editingTxId);
+                    resetForm();
+                    setActiveTab('dashboard');
+                }
+            };
+
+            const handleCancelEdit = () => {
+                resetForm();
+                setActiveTab('dashboard');
+            };
+
+            // 執行結算
+            const handleSettleUp = () => {
+                if (!needsSettlement) {
+                    alert('目前全部結清，不需要結算喔！');
+                    return;
+                }
+
+                if (window.confirm('確定要一鍵結算歸零嗎？這將會把所有人的目前餘額歸零並鎖定過去帳務。')) {
+                    const newTx = {
+                        id: Date.now().toString(),
+                        amount: 0,
+                        description: '💰 結算清零',
+                        paidBy: users[0].id,
+                        splitType: 'settlement',
+                        date: new Date().toISOString()
+                    };
+
+                    setTransactions([newTx, ...transactions]);
+                    if (typeof google !== 'undefined') {
+                        google.script.run.addTransaction(newTx);
+                    }
+                }
+            };
+
+            // 管理頁面新增使用者
+            const handleAddUser = (e) => {
+                e.preventDefault();
+                if (!newUserName.trim()) return;
+
+                const newUser = { id: 'u' + Date.now(), name: newUserName.trim() };
+                setUsers([...users, newUser]);
+
+                if (typeof google !== 'undefined') {
+                    google.script.run.addUser(newUser);
+                }
+                setNewUserName('');
+            };
+
+            const getUserName = (uid) => {
+                const u = users.find(x => x.id === uid);
+                return u ? u.name : '未知';
+            };
+
+            const formatDate = (isoString) => {
+                const d = new Date(isoString);
+                return `${d.getMonth() + 1}/${d.getDate()} ${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+            };
+
+            // AI 照片辨識
+            const handleImageUpload = async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                setIsRecognizing(true);
+                try {
+                    const base64Image = await new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onloadend = () => resolve(reader.result);
+                        reader.onerror = reject;
+                        reader.readAsDataURL(file);
+                    });
+
+                    const base64Data = base64Image.split(',')[1];
+                    const mimeType = file.type || "image/jpeg";
+
+                    // ⚠️ 請在這裡填入你申請的 Gemini API Key ⚠️
+                    const apiKey = "";
+
+                    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+                    const prompt = `你是一個專業的記帳助手。請辨識這張收據或發票的照片。找出『總金額』與『最可能的消費項目/店名』。請嚴格以 JSON 格式回傳，且不要包含 markdown 標籤，格式必須完全如： {"amount": 500, "item": "家樂福日常用品"} 。如果找不到，請回傳 {"amount": 0, "item": "無法辨識"}。`;
+
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            contents: [{ role: "user", parts: [{ text: prompt }, { inlineData: { mimeType: mimeType, data: base64Data } }] }]
+                        })
+                    });
+
+                    if (!response.ok) throw new Error('API 請求失敗');
+
+                    const data = await response.json();
+                    const textResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+                    let cleanJson = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
+                    const result = JSON.parse(cleanJson);
+
+                    if (result.amount > 0) setAmount(result.amount.toString());
+                    if (result.item && result.item !== "無法辨識") setDescription(result.item);
+
+                } catch (error) {
+                    console.error("AI 辨識錯誤:", error);
+                    alert("辨識失敗，請稍後手動輸入。");
+                } finally {
+                    setIsRecognizing(false);
+                    if (fileInputRef.current) fileInputRef.current.value = '';
+                }
+            };
+
+            // 如果沒有權限，直接回傳全螢幕的阻擋畫面
+            if (accessDenied) {
+                return (
+                    <div className="min-h-screen bg-slate-50 font-sans text-slate-800 flex justify-center items-center p-4">
+                        <div className="w-full max-w-md bg-white rounded-3xl shadow-xl p-8 text-center border border-slate-100 animate-in fade-in zoom-in-95 duration-300">
+                            <div className="w-24 h-24 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner border border-rose-100">
+                                <Icons.Lock className="w-10 h-10" />
+                            </div>
+                            <h2 className="text-2xl font-bold text-slate-800 mb-3">沒有存取權限</h2>
+                            <p className="text-slate-500 mb-8 leading-relaxed text-sm">
+                                您目前無法讀取資料庫。<br />請確認您已登入正確的 Google 帳號，<br />並且已被加入該試算表的「共用」名單中。
+                            </p>
+                            <button
+                                onClick={() => fetchServerData()}
+                                disabled={isLoadingData}
+                                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3.5 rounded-xl font-bold transition-colors shadow-md flex justify-center items-center gap-2 disabled:opacity-70"
+                            >
+                                <Icons.RefreshCw className={`w-5 h-5 ${isLoadingData ? 'animate-spin' : ''}`} />
+                                {isLoadingData ? '驗證中...' : '重新檢查權限'}
+                            </button>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="min-h-screen bg-slate-50 font-sans text-slate-800 flex justify-center">
+                    <div className="w-full max-w-md bg-white shadow-xl relative pb-20 overflow-hidden flex flex-col min-h-screen">
+
+                        {/* 標題與設定按鈕 */}
+                        <header className="bg-indigo-600 text-white px-6 py-5 shadow-md z-10 sticky top-0 flex justify-between items-center">
+                            <h1 className="text-xl font-bold flex items-center gap-2">
+                                <Icons.Wallet className="w-6 h-6" /> 閃電記帳
+                            </h1>
+                            <div className="flex items-center gap-2">
+                                <div className="text-xs bg-indigo-700 px-2 py-1 rounded-lg shadow-inner">
+                                    {users.length} 人群組
+                                </div>
+                                <button onClick={() => { resetForm(); setActiveTab('settings'); }} className="p-1.5 hover:bg-white/20 rounded-full transition-colors active:scale-90" title="管理設定">
+                                    <Icons.Settings className="w-5 h-5" />
+                                </button>
+                            </div>
+                        </header>
+
+                        <main className="flex-1 overflow-y-auto p-4">
+                            {isLoadingData ? (
+                                <div className="flex flex-col items-center justify-center h-full space-y-4 py-20 text-indigo-400">
+                                    <Icons.Loader2 className="w-10 h-10 animate-spin" />
+                                    <p className="font-medium animate-pulse">正在載入雲端資料庫...</p>
+                                </div>
+                            ) : (
+                                <>
+                                    {/* TAB: 首頁/儀表板 */}
+                                    {activeTab === 'dashboard' && (
+                                        <div className="space-y-6 animate-in fade-in duration-300">
+                                            <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden">
+                                                <div className="absolute top-0 right-0 p-4 opacity-20"><Icons.Users className="w-24 h-24" /></div>
+                                                <h2 className="text-indigo-100 text-sm font-medium mb-3">當前帳務餘額</h2>
+
+                                                <div className="space-y-2 mb-6 relative z-10">
+                                                    {users.map(u => {
+                                                        const bal = balances[u.id] || 0;
+                                                        return (
+                                                            <div key={u.id} className="flex justify-between items-center bg-white/10 px-4 py-3 rounded-xl backdrop-blur-sm">
+                                                                <span className="font-bold text-lg">{u.name}</span>
+                                                                <span className={`font-bold text-lg ${bal > 0.1 ? 'text-green-300' : bal < -0.1 ? 'text-rose-300' : 'text-slate-200'}`}>
+                                                                    {bal > 0.1 ? `應收 $${Math.round(bal)}` : bal < -0.1 ? `應付 $${Math.abs(Math.round(bal))}` : '已結清'}
+                                                                </span>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+
+                                                <button
+                                                    onClick={handleSettleUp}
+                                                    disabled={!needsSettlement}
+                                                    className={`w-full py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 backdrop-blur-sm transition-colors shadow-sm
+                            ${!needsSettlement ? 'bg-white/10 text-white/50 cursor-not-allowed' : 'bg-white text-indigo-600 hover:bg-indigo-50'}`}
+                                                >
+                                                    <Icons.RefreshCw className={`w-4 h-4 ${needsSettlement ? 'animate-[spin_4s_linear_infinite]' : ''}`} />
+                                                    {needsSettlement ? '全部結算歸零' : '目前無需結算'}
+                                                </button>
+                                            </div>
+
+                                            <div>
+                                                {/* 最近動態 與 重整按鈕 */}
+                                                <div className="flex justify-between items-end mb-4 px-1">
+                                                    <div className="flex items-center gap-2">
+                                                        <h3 className="font-semibold text-lg text-slate-700">最近動態</h3>
+                                                        <button onClick={() => fetchServerData(true)} className="text-slate-400 hover:text-indigo-600 transition-colors p-1" title="重整資料">
+                                                            <Icons.RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                                                        </button>
+                                                    </div>
+                                                    <button onClick={() => setActiveTab('history')} className="text-indigo-600 text-sm font-medium">查看全部</button>
+                                                </div>
+
+                                                {transactions.length === 0 ? (
+                                                    <div className="text-center py-10 bg-slate-50 rounded-2xl border border-slate-100">
+                                                        <Icons.Receipt className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                                                        <p className="text-slate-500">目前沒有記帳紀錄喔！</p>
+                                                    </div>
+                                                ) : (
+                                                    <div className="space-y-3">
+                                                        {transactions.slice(0, 5).map(t => {
+                                                            const settled = isSettled(t.date);
+                                                            return (
+                                                                <div key={t.id}
+                                                                    onClick={() => !settled && t.splitType !== 'settlement' && handleEditClick(t)}
+                                                                    className={`p-4 rounded-2xl border shadow-sm flex justify-between items-center transition-colors
+                                  ${t.splitType === 'settlement' ? 'bg-emerald-50 border-emerald-100' :
+                                                                            settled ? 'bg-slate-50 border-slate-100 opacity-70' : 'bg-white border-slate-100 cursor-pointer hover:border-indigo-300'}`}>
+                                                                    <div className="flex items-center gap-3">
+                                                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold shadow-inner flex-shrink-0
+                                    ${t.splitType === 'settlement' ? 'bg-emerald-200 text-emerald-700' : settled ? 'bg-slate-200 text-slate-500' : 'bg-indigo-100 text-indigo-600'}`}>
+                                                                            {t.splitType === 'settlement' ? '💰' : settled ? <Icons.Lock className="w-4 h-4" /> : getUserName(t.paidBy).charAt(0)}
+                                                                        </div>
+                                                                        <div>
+                                                                            <p className="font-medium text-slate-800 line-clamp-1">{t.description}</p>
+                                                                            <p className="text-xs text-slate-400">{formatDate(t.date)}</p>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="text-right flex-shrink-0">
+                                                                        <p className={`font-bold ${t.splitType === 'settlement' ? 'text-emerald-600' : 'text-slate-700'}`}>${t.amount}</p>
+                                                                        <p className="text-[10px] text-slate-400">
+                                                                            {t.splitType === 'equal' || t.splitType === '50/50' ? `平分 (各$${Math.round(t.amount / users.length)})` :
+                                                                                t.splitType === 'custom' ? `自訂比例` : '結算完成'}
+                                                                        </p>
+                                                                    </div>
+                                                                </div>
+                                                            )
+                                                        })}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* TAB: 新增/修改記帳 */}
+                                    {activeTab === 'add' && (
+                                        <div className="animate-in fade-in duration-300">
+                                            <div className="flex justify-between items-center mb-6 px-1">
+                                                <h2 className="text-2xl font-bold text-slate-800">
+                                                    {editingTxId ? '修改花費紀錄' : '新增一筆花費'}
+                                                </h2>
+                                                {/* 修改模式下才顯示的複製按鈕 */}
+                                                {editingTxId && (
+                                                    <button type="button" onClick={handleCopyFromEdit} className="text-indigo-600 flex items-center gap-1 text-sm font-medium bg-indigo-50 px-3 py-1.5 rounded-lg hover:bg-indigo-100 transition-colors">
+                                                        <Icons.Copy className="w-4 h-4" /> 複製成新紀錄
+                                                    </button>
+                                                )}
+                                            </div>
+
+                                            {!editingTxId && (
+                                                <div className="mb-6">
+                                                    <input type="file" accept="image/*" capture="environment" className="hidden" ref={fileInputRef} onChange={handleImageUpload} />
+                                                    <button type="button" onClick={() => fileInputRef.current?.click()} disabled={isRecognizing} className="w-full bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white rounded-2xl p-4 flex flex-col items-center justify-center gap-2 shadow-md transition-all disabled:opacity-70">
+                                                        {isRecognizing ? (
+                                                            <><Icons.Loader2 className="w-8 h-8 animate-spin" /><span className="font-medium">AI 正在努力看收據...</span></>
+                                                        ) : (
+                                                            <><Icons.Camera className="w-8 h-8" /><span className="font-medium">AI 拍照/上傳辨識收據</span><span className="text-xs opacity-80">自動填入金額與項目</span></>
+                                                        )}
+                                                    </button>
+                                                </div>
+                                            )}
+
+                                            <form onSubmit={handleAddTransaction} className="space-y-5">
+                                                <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 flex-1">
+                                                    <label className="block text-xs font-semibold text-slate-500 mb-2 uppercase">總金額</label>
+                                                    <div className="flex items-center text-3xl font-bold text-slate-700">
+                                                        <span className="text-slate-300 mr-1">$</span>
+                                                        <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0" className="w-full bg-transparent outline-none placeholder:text-slate-200" autoFocus />
+                                                    </div>
+                                                </div>
+
+                                                <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+                                                    <label className="block text-xs font-semibold text-slate-500 mb-2 uppercase">項目名稱</label>
+                                                    <input type="text" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="例如：全聯買菜、聚餐" className="w-full bg-transparent outline-none text-lg text-slate-700 placeholder:text-slate-300" />
+                                                </div>
+
+                                                <div>
+                                                    <label className="block text-xs font-semibold text-slate-500 mb-2 ml-1 uppercase">誰代墊的？</label>
+                                                    <div className="flex overflow-x-auto gap-3 pb-2 snap-x">
+                                                        {users.map(u => (
+                                                            <button key={u.id} type="button" onClick={() => setPaidBy(u.id)}
+                                                                className={`snap-start whitespace-nowrap px-5 py-3 rounded-xl flex items-center justify-center gap-2 font-medium transition-all flex-1 min-w-[100px]
+                                ${paidBy === u.id ? 'bg-indigo-600 text-white shadow-md' : 'bg-white text-slate-600 border border-slate-200'}`}>
+                                                                {paidBy === u.id && <Icons.Check className="w-4 h-4" />} {u.name}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+
+                                                <div className="bg-slate-100 p-3 rounded-2xl">
+                                                    <label className="block text-xs font-semibold text-slate-500 mb-2 uppercase">分攤方式</label>
+                                                    <div className="flex gap-2 mb-3 bg-slate-200/50 p-1 rounded-xl">
+                                                        <button type="button" onClick={() => setSplitType('equal')} className={`flex-1 py-2 rounded-lg text-sm font-bold transition-colors ${splitType === 'equal' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500 hover:text-slate-700'}`}>大家平分</button>
+                                                        <button type="button" onClick={() => setSplitType('custom')} className={`flex-1 py-2 rounded-lg text-sm font-bold transition-colors ${splitType === 'custom' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500 hover:text-slate-700'}`}>自訂比例</button>
+                                                    </div>
+
+                                                    {splitType === 'custom' && (
+                                                        <div className="grid grid-cols-2 gap-3 animate-in fade-in zoom-in-95 duration-200">
+                                                            {users.map(u => (
+                                                                <div key={u.id} className="bg-white border border-slate-200 rounded-xl p-3 shadow-sm">
+                                                                    <label className="text-xs text-slate-400 block mb-1 font-medium">{u.name} 負擔</label>
+                                                                    <div className="flex items-center">
+                                                                        <span className="text-slate-300 mr-1">$</span>
+                                                                        <input type="number" value={customShares[u.id] || ''} onChange={(e) => handleShareChange(u.id, e.target.value)} className="w-full outline-none font-bold text-slate-700 bg-transparent text-lg" placeholder="0" />
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                <div className="pt-4 flex flex-col gap-3">
+                                                    <button type="submit" disabled={!amount || isNaN(amount)} className="w-full bg-slate-800 hover:bg-slate-900 text-white py-4 rounded-2xl font-bold text-lg shadow-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                                                        {editingTxId ? '儲存修改' : '儲存這筆花費'}
+                                                    </button>
+
+                                                    {/* 修改模式才有的刪除與取消鈕 */}
+                                                    {editingTxId && (
+                                                        <div className="flex gap-3">
+                                                            <button type="button" onClick={handleDelete} className="flex-1 bg-rose-50 text-rose-600 hover:bg-rose-100 py-3 rounded-xl font-bold transition-colors flex items-center justify-center gap-2">
+                                                                <Icons.Trash2 className="w-5 h-5" /> 刪除
+                                                            </button>
+                                                            <button type="button" onClick={handleCancelEdit} className="flex-1 bg-slate-100 text-slate-600 hover:bg-slate-200 py-3 rounded-xl font-bold transition-colors">
+                                                                取消
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </form>
+                                        </div>
+                                    )}
+
+                                    {/* TAB: 歷史紀錄 */}
+                                    {activeTab === 'history' && (
+                                        <div className="animate-in fade-in duration-300">
+                                            <div className="flex justify-between items-end mb-6 px-1">
+                                                <h2 className="text-2xl font-bold text-slate-800">全部紀錄</h2>
+                                                <button onClick={() => fetchServerData(true)} className="text-indigo-600 flex items-center gap-1 text-sm font-medium bg-indigo-50 px-3 py-1.5 rounded-lg hover:bg-indigo-100 transition-colors">
+                                                    <Icons.RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                                                    更新列表
+                                                </button>
+                                            </div>
+
+                                            <div className="space-y-3">
+                                                {transactions.map(t => {
+                                                    const settled = isSettled(t.date);
+                                                    return (
+                                                        <div key={t.id}
+                                                            onClick={() => !settled && t.splitType !== 'settlement' && handleEditClick(t)}
+                                                            className={`p-4 rounded-2xl border shadow-sm relative transition-colors
+                                ${t.splitType === 'settlement' ? 'bg-emerald-50 border-emerald-100' :
+                                                                    settled ? 'bg-slate-50 border-slate-100 opacity-70' : 'bg-white border-slate-100 cursor-pointer hover:border-indigo-300'}`}>
+
+                                                            <div className="flex items-center gap-3 pr-2">
+                                                                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold shadow-inner flex-shrink-0
+                                  ${t.splitType === 'settlement' ? 'bg-emerald-200 text-emerald-700' : settled ? 'bg-slate-200 text-slate-500' : 'bg-indigo-100 text-indigo-600'}`}>
+                                                                    {t.splitType === 'settlement' ? '💰' : settled ? <Icons.Lock className="w-4 h-4" /> : getUserName(t.paidBy).charAt(0)}
+                                                                </div>
+                                                                <div>
+                                                                    <p className="font-medium text-slate-800 line-clamp-1">{t.description}</p>
+                                                                    <div className="flex gap-2 items-center mt-0.5">
+                                                                        <p className={`font-bold ${t.splitType === 'settlement' ? 'text-emerald-600' : 'text-slate-700'}`}>${t.amount}</p>
+                                                                        <p className="text-[10px] text-slate-400">({formatDate(t.date)})</p>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            {t.splitType === 'custom' && (
+                                                                <div className="mt-3 pt-3 border-t border-slate-100/50 grid grid-cols-2 gap-2 text-xs text-slate-500">
+                                                                    {Object.keys(t.shares || {}).map(uid => (
+                                                                        <div key={uid} className="flex justify-between bg-slate-50 px-2 py-1 rounded">
+                                                                            <span>{getUserName(uid)}</span>
+                                                                            <span className="font-medium">${t.shares[uid]}</span>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )
+                                                })}
+                                                {transactions.length === 0 && (
+                                                    <div className="text-center py-12 text-slate-400">沒有任何紀錄</div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* TAB: 管理 */}
+                                    {activeTab === 'settings' && (
+                                        <div className="animate-in fade-in duration-300">
+                                            <h2 className="text-2xl font-bold text-slate-800 mb-6 px-1">群組與設定</h2>
+
+                                            <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 mb-6">
+                                                <div className="flex items-center gap-2 mb-4">
+                                                    <Icons.Users className="w-5 h-5 text-indigo-600" />
+                                                    <h3 className="font-semibold text-lg">目前成員 ({users.length})</h3>
+                                                </div>
+
+                                                <div className="space-y-2 mb-6">
+                                                    {users.map((u, idx) => (
+                                                        <div key={u.id} className="flex items-center gap-3 bg-slate-50 px-4 py-3 rounded-xl border border-slate-100">
+                                                            <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold shadow-inner">
+                                                                {u.name.charAt(0)}
+                                                            </div>
+                                                            <span className="font-medium text-slate-700">{u.name}</span>
+                                                            {idx === 0 && <span className="text-[10px] bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded-full ml-auto">建立者</span>}
+                                                        </div>
+                                                    ))}
+                                                </div>
+
+                                                <div className="border-t border-slate-100 pt-5">
+                                                    <label className="block text-xs font-semibold text-slate-500 mb-2 uppercase">新增群組成員</label>
+                                                    <form onSubmit={handleAddUser} className="flex gap-2">
+                                                        <input
+                                                            type="text"
+                                                            value={newUserName}
+                                                            onChange={(e) => setNewUserName(e.target.value)}
+                                                            placeholder="輸入名字 (例如：小明)"
+                                                            className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:border-indigo-500 transition-colors"
+                                                        />
+                                                        <button type="submit" disabled={!newUserName.trim()} className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl flex items-center gap-1 font-medium disabled:opacity-50 transition-colors">
+                                                            <Icons.UserPlus className="w-4 h-4" /> 新增
+                                                        </button>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </>
+                            )}
+                        </main>
+
+                        {/* 底部導覽列 (只留三個按鈕) */}
+                        <nav className="fixed bottom-0 w-full max-w-md bg-white border-t border-slate-100 flex justify-around items-center pb-safe pt-2 shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)] z-20">
+                            <button onClick={() => { resetForm(); setActiveTab('dashboard'); }} className={`flex flex-col items-center p-3 transition-colors ${activeTab === 'dashboard' ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}>
+                                <Icons.Home className={`w-6 h-6 mb-1 ${activeTab === 'dashboard' ? 'fill-indigo-100' : ''}`} />
+                                <span className="text-[10px] font-bold">首頁</span>
+                            </button>
+
+                            <div className="relative -top-6">
+                                <button onClick={() => { resetForm(); setActiveTab('add'); }} className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-full p-4 shadow-xl shadow-indigo-200 transition-transform active:scale-95 flex items-center justify-center">
+                                    <Icons.PlusCircle className="w-8 h-8" />
+                                </button>
+                            </div>
+
+                            <button onClick={() => { resetForm(); setActiveTab('history'); }} className={`flex flex-col items-center p-3 transition-colors ${activeTab === 'history' ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}>
+                                <Icons.History className={`w-6 h-6 mb-1 ${activeTab === 'history' ? 'fill-indigo-100' : ''}`} />
+                                <span className="text-[10px] font-bold">紀錄</span>
+                            </button>
+                        </nav>
+
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+
+</html>
