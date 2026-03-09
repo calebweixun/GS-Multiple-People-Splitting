@@ -6,18 +6,16 @@ function doGet(e) {
     .setTitle('閃電記帳 - 多人版')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
     
-  // 允許此網頁被嵌入到 GitHub Pages 的 iframe 中
   htmlOutput.setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
   return htmlOutput;
 }
 
 /**
- * 2. 初始化試算表與表頭 (請先在編輯器手動執行一次此函式！)
+ * 2. 初始化試算表與表頭
  */
 function setupSheet() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   
-  // 初始化 app_log (記帳紀錄)
   var logSheet = ss.getSheetByName('app_log');
   if (!logSheet) {
     logSheet = ss.insertSheet('app_log');
@@ -26,28 +24,24 @@ function setupSheet() {
     logSheet.setFrozenRows(1);
   }
 
-  // 初始化 app_config (人員名單)
   var configSheet = ss.getSheetByName('app_config');
   if (!configSheet) {
     configSheet = ss.insertSheet('app_config');
     configSheet.appendRow(['userId', 'userName']);
-    configSheet.appendRow(['u1', '勛']);
-    configSheet.appendRow(['u2', '孟']);
+    // 移除預設人員，改由前端引導建立第一位使用者
     configSheet.getRange(1, 1, 1, 2).setFontWeight('bold').setBackground('#f3f4f6');
     configSheet.setFrozenRows(1);
   }
 
-  // 初始化 app_settings (系統設定與密碼)
   var settingsSheet = ss.getSheetByName('app_settings');
   if (!settingsSheet) {
     settingsSheet = ss.insertSheet('app_settings');
     settingsSheet.appendRow(['Key', 'Value']);
-    settingsSheet.appendRow(['PASSWORD', '8888']); // 預設密碼為 8888
+    settingsSheet.appendRow(['PASSWORD', '8888']); 
     settingsSheet.getRange(1, 1, 1, 2).setFontWeight('bold').setBackground('#f3f4f6');
     settingsSheet.setFrozenRows(1);
   }
 
-  // 初始化 app_audit (操作紀錄)
   var auditSheet = ss.getSheetByName('app_audit');
   if (!auditSheet) {
     auditSheet = ss.insertSheet('app_audit');
@@ -57,12 +51,9 @@ function setupSheet() {
   }
 }
 
-/**
- * 內部函數：驗證密碼
- */
 function verifyPassword(pwd) {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('app_settings');
-  if (!sheet) return true; // 尚未設定則放行
+  if (!sheet) return true; 
   var data = sheet.getDataRange().getValues();
   for (var i = 1; i < data.length; i++) {
     if (data[i][0] === 'PASSWORD') {
@@ -72,9 +63,6 @@ function verifyPassword(pwd) {
   return true; 
 }
 
-/**
- * 內部函數：寫入操作紀錄 (Audit Log)
- */
 function logAudit(operator, action, details) {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('app_audit');
   if (sheet) {
@@ -88,7 +76,12 @@ function logAudit(operator, action, details) {
 function getInitialData(pwd) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   
-  // 先取得人員名單 (登入畫面需要顯示人名)
+  // 密碼錯誤，直接阻擋，連人員名單都不回傳
+  if (!verifyPassword(pwd)) {
+    return { error: "AUTH_FAILED" };
+  }
+
+  // 密碼正確，讀取人員名單
   var configSheet = ss.getSheetByName('app_config');
   var usersData = configSheet.getDataRange().getValues();
   var users = [];
@@ -98,12 +91,7 @@ function getInitialData(pwd) {
     }
   }
 
-  // 檢查密碼，錯誤則只回傳人員名單並擋下紀錄讀取
-  if (!verifyPassword(pwd)) {
-    return { users: users, error: "AUTH_FAILED" };
-  }
-
-  // 密碼正確，讀取歷史紀錄
+  // 讀取歷史紀錄
   var logSheet = ss.getSheetByName('app_log');
   var logData = logSheet.getDataRange().getValues();
   var transactions = [];
@@ -136,12 +124,10 @@ function getInitialData(pwd) {
 function addTransaction(pwd, operatorName, tx) {
   if (!verifyPassword(pwd)) throw new Error("AUTH_FAILED");
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('app_log');
-  
   var sharesJson = '';
   if ((tx.splitType === 'custom' || tx.splitType === 'settlement') && tx.shares) {
     sharesJson = JSON.stringify(tx.shares);
   }
-  
   sheet.appendRow([tx.id, tx.amount, tx.description, tx.paidBy, tx.splitType, tx.date, sharesJson]);
   logAudit(operatorName, '新增', tx.description + ' ($' + tx.amount + ')');
   return true;
@@ -154,7 +140,6 @@ function updateTransaction(pwd, operatorName, tx) {
   if (!verifyPassword(pwd)) throw new Error("AUTH_FAILED");
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('app_log');
   var data = sheet.getDataRange().getValues();
-  
   for (var i = 1; i < data.length; i++) {
     if (data[i][0].toString() === tx.id) {
       var sharesJson = '';
@@ -176,10 +161,9 @@ function deleteTransaction(pwd, operatorName, id) {
   if (!verifyPassword(pwd)) throw new Error("AUTH_FAILED");
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('app_log');
   var data = sheet.getDataRange().getValues();
-  
   for (var i = 1; i < data.length; i++) {
     if (data[i][0].toString() === id) {
-      var desc = data[i][2]; // 記錄被刪除的項目名稱
+      var desc = data[i][2];
       sheet.deleteRow(i + 1);
       logAudit(operatorName, '刪除', '移除了紀錄: ' + desc);
       return true;
@@ -198,6 +182,62 @@ function addUser(pwd, operatorName, user) {
   logAudit(operatorName, '設定', '新增成員: ' + user.name);
   return true;
 }
+
+/**
+ * 8. 修改密碼
+ */
+function changePassword(oldPwd, newPwd, operatorName) {
+  if (!verifyPassword(oldPwd)) throw new Error("AUTH_FAILED");
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('app_settings');
+  var data = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][0] === 'PASSWORD') {
+      sheet.getRange(i + 1, 2).setValue(newPwd);
+      logAudit(operatorName, '系統', '修改了群組密碼');
+      return true;
+    }
+  }
+  sheet.appendRow(['PASSWORD', newPwd]);
+  logAudit(operatorName, '系統', '設定了群組密碼');
+  return true;
+}
+
+/**
+ * 9. 編輯使用者
+ */
+function updateUser(pwd, operatorName, userId, newName) {
+  if (!verifyPassword(pwd)) throw new Error("AUTH_FAILED");
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('app_config');
+  var data = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][0].toString() === userId) {
+      var oldName = data[i][1];
+      sheet.getRange(i + 1, 2).setValue(newName);
+      logAudit(operatorName, '設定', '將成員「' + oldName + '」更名為: ' + newName);
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * 10. 刪除使用者
+ */
+function deleteUser(pwd, operatorName, userId) {
+  if (!verifyPassword(pwd)) throw new Error("AUTH_FAILED");
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('app_config');
+  var data = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][0].toString() === userId) {
+      var userName = data[i][1];
+      sheet.deleteRow(i + 1);
+      logAudit(operatorName, '設定', '刪除了成員: ' + userName);
+      return true;
+    }
+  }
+  return false;
+}
+
 
 // --- AI 辨識後端邏輯 ---
 
