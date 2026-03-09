@@ -11,6 +11,19 @@ function doGet(e) {
 }
 
 /**
+ * 🛠️ 輔助函數：強制純文字防呆機制 (防止 Google Sheets 幫倒忙吃掉開頭的 0)
+ */
+function forceText(val) {
+  if (val === null || val === undefined) return '';
+  var str = val.toString();
+  // 如果字串內容完全是數字（包含可能的負號或小數點），強制加上單引號
+  if (/^-?\d+(\.\d+)?$/.test(str)) {
+    return "'" + str;
+  }
+  return str;
+}
+
+/**
  * 2. 初始化試算表與表頭
  */
 function setupSheet() {
@@ -21,6 +34,9 @@ function setupSheet() {
     logSheet = ss.insertSheet('app_log');
     logSheet.appendRow(['id', 'amount', 'description', 'paidBy', 'splitType', 'date', 'sharesJson']);
     logSheet.getRange(1, 1, 1, 7).setFontWeight('bold').setBackground('#f3f4f6');
+    // 鎖死純文字格式欄位
+    logSheet.getRange('A:A').setNumberFormat('@'); // id
+    logSheet.getRange('C:C').setNumberFormat('@'); // description
     logSheet.setFrozenRows(1);
   }
 
@@ -28,8 +44,9 @@ function setupSheet() {
   if (!configSheet) {
     configSheet = ss.insertSheet('app_config');
     configSheet.appendRow(['userId', 'userName']);
-    // 移除預設人員，改由前端引導建立第一位使用者
     configSheet.getRange(1, 1, 1, 2).setFontWeight('bold').setBackground('#f3f4f6');
+    // 鎖死純文字格式欄位
+    configSheet.getRange('A:B').setNumberFormat('@'); 
     configSheet.setFrozenRows(1);
   }
 
@@ -37,8 +54,10 @@ function setupSheet() {
   if (!settingsSheet) {
     settingsSheet = ss.insertSheet('app_settings');
     settingsSheet.appendRow(['Key', 'Value']);
-    settingsSheet.appendRow(['PASSWORD', '8888']); 
+    settingsSheet.appendRow(['PASSWORD', forceText('8888')]); 
     settingsSheet.getRange(1, 1, 1, 2).setFontWeight('bold').setBackground('#f3f4f6');
+    // 鎖死純文字格式欄位
+    settingsSheet.getRange('B:B').setNumberFormat('@'); 
     settingsSheet.setFrozenRows(1);
   }
 
@@ -47,6 +66,8 @@ function setupSheet() {
     auditSheet = ss.insertSheet('app_audit');
     auditSheet.appendRow(['時間', '操作人', '動作', '詳細內容']);
     auditSheet.getRange(1, 1, 1, 4).setFontWeight('bold').setBackground('#f3f4f6');
+    // 鎖死純文字格式欄位
+    auditSheet.getRange('B:D').setNumberFormat('@'); 
     auditSheet.setFrozenRows(1);
   }
 }
@@ -66,7 +87,7 @@ function verifyPassword(pwd) {
 function logAudit(operator, action, details) {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('app_audit');
   if (sheet) {
-    sheet.appendRow([new Date().toISOString(), operator, action, details]);
+    sheet.appendRow([new Date().toISOString(), forceText(operator), forceText(action), forceText(details)]);
   }
 }
 
@@ -76,12 +97,10 @@ function logAudit(operator, action, details) {
 function getInitialData(pwd) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   
-  // 密碼錯誤，直接阻擋，連人員名單都不回傳
   if (!verifyPassword(pwd)) {
     return { error: "AUTH_FAILED" };
   }
 
-  // 密碼正確，讀取人員名單
   var configSheet = ss.getSheetByName('app_config');
   var usersData = configSheet.getDataRange().getValues();
   var users = [];
@@ -91,7 +110,6 @@ function getInitialData(pwd) {
     }
   }
 
-  // 讀取歷史紀錄
   var logSheet = ss.getSheetByName('app_log');
   var logData = logSheet.getDataRange().getValues();
   var transactions = [];
@@ -126,10 +144,11 @@ function addTransaction(pwd, operatorName, tx) {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('app_log');
   var sharesJson = '';
   if ((tx.splitType === 'custom' || tx.splitType === 'settlement') && tx.shares) {
-    sharesJson = JSON.stringify(tx.shares);
+    sharesJson = forceText(JSON.stringify(tx.shares));
   }
-  sheet.appendRow([tx.id, tx.amount, tx.description, tx.paidBy, tx.splitType, tx.date, sharesJson]);
-  logAudit(operatorName, '新增', tx.description + ' ($' + tx.amount + ')');
+  // 使用 forceText 保護 ID 和 描述
+  sheet.appendRow([forceText(tx.id), tx.amount, forceText(tx.description), tx.paidBy, tx.splitType, tx.date, sharesJson]);
+  logAudit(operatorName, '新增', forceText(tx.description) + ' ($' + tx.amount + ')');
   return true;
 }
 
@@ -144,10 +163,10 @@ function updateTransaction(pwd, operatorName, tx) {
     if (data[i][0].toString() === tx.id) {
       var sharesJson = '';
       if ((tx.splitType === 'custom' || tx.splitType === 'settlement') && tx.shares) {
-        sharesJson = JSON.stringify(tx.shares);
+        sharesJson = forceText(JSON.stringify(tx.shares));
       }
-      sheet.getRange(i + 1, 2, 1, 6).setValues([[tx.amount, tx.description, tx.paidBy, tx.splitType, tx.date, sharesJson]]);
-      logAudit(operatorName, '修改', tx.description + ' ($' + tx.amount + ')');
+      sheet.getRange(i + 1, 2, 1, 6).setValues([[tx.amount, forceText(tx.description), tx.paidBy, tx.splitType, tx.date, sharesJson]]);
+      logAudit(operatorName, '修改', forceText(tx.description) + ' ($' + tx.amount + ')');
       return true;
     }
   }
@@ -165,7 +184,7 @@ function deleteTransaction(pwd, operatorName, id) {
     if (data[i][0].toString() === id) {
       var desc = data[i][2];
       sheet.deleteRow(i + 1);
-      logAudit(operatorName, '刪除', '移除了紀錄: ' + desc);
+      logAudit(operatorName, '刪除', '移除了紀錄: ' + forceText(desc));
       return true;
     }
   }
@@ -178,8 +197,8 @@ function deleteTransaction(pwd, operatorName, id) {
 function addUser(pwd, operatorName, user) {
   if (!verifyPassword(pwd)) throw new Error("AUTH_FAILED");
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('app_config');
-  sheet.appendRow([user.id, user.name]);
-  logAudit(operatorName, '設定', '新增成員: ' + user.name);
+  sheet.appendRow([forceText(user.id), forceText(user.name)]);
+  logAudit(operatorName, '設定', '新增成員: ' + forceText(user.name));
   return true;
 }
 
@@ -192,12 +211,12 @@ function changePassword(oldPwd, newPwd, operatorName) {
   var data = sheet.getDataRange().getValues();
   for (var i = 1; i < data.length; i++) {
     if (data[i][0] === 'PASSWORD') {
-      sheet.getRange(i + 1, 2).setValue(newPwd);
+      sheet.getRange(i + 1, 2).setValue(forceText(newPwd));
       logAudit(operatorName, '系統', '修改了群組密碼');
       return true;
     }
   }
-  sheet.appendRow(['PASSWORD', newPwd]);
+  sheet.appendRow(['PASSWORD', forceText(newPwd)]);
   logAudit(operatorName, '系統', '設定了群組密碼');
   return true;
 }
@@ -212,8 +231,8 @@ function updateUser(pwd, operatorName, userId, newName) {
   for (var i = 1; i < data.length; i++) {
     if (data[i][0].toString() === userId) {
       var oldName = data[i][1];
-      sheet.getRange(i + 1, 2).setValue(newName);
-      logAudit(operatorName, '設定', '將成員「' + oldName + '」更名為: ' + newName);
+      sheet.getRange(i + 1, 2).setValue(forceText(newName));
+      logAudit(operatorName, '設定', '將成員「' + forceText(oldName) + '」更名為: ' + forceText(newName));
       return true;
     }
   }
@@ -231,15 +250,12 @@ function deleteUser(pwd, operatorName, userId) {
     if (data[i][0].toString() === userId) {
       var userName = data[i][1];
       sheet.deleteRow(i + 1);
-      logAudit(operatorName, '設定', '刪除了成員: ' + userName);
+      logAudit(operatorName, '設定', '刪除了成員: ' + forceText(userName));
       return true;
     }
   }
   return false;
 }
-
-
-// --- AI 辨識後端邏輯 ---
 
 // ⚠️ 請在這裡填入你申請的 Gemini API Key (絕對安全，不會暴露在網頁上)
 const GEMINI_API_KEY = '請將你的_API_KEY_貼在這裡';
