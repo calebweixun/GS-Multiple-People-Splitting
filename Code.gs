@@ -165,3 +165,53 @@ function addUser(user) {
   sheet.appendRow([user.id, user.name]);
   return true;
 }
+
+// --- AI 辨識後端邏輯 ---
+
+// ⚠️ 請在這裡填入你申請的 Gemini API Key (絕對安全，不會暴露在網頁上)
+const GEMINI_API_KEY = '請將你的_API_KEY_貼在這裡';
+
+/**
+ * 處理前端傳來的照片，呼叫 Gemini API
+ */
+function analyzeReceipt(base64Data, mimeType) {
+  if (!GEMINI_API_KEY || GEMINI_API_KEY === '請將你的_API_KEY_貼在這裡') {
+    throw new Error("後端尚未設定 API Key，請至 Code.gs 填寫。");
+  }
+
+  var url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + GEMINI_API_KEY;
+  var prompt = "你是一個專業的記帳助手。請辨識這張收據或發票的照片。找出『總金額』與『最可能的消費項目/店名』。請嚴格以 JSON 格式回傳，且不要包含 markdown 標籤，格式必須完全如： {\"amount\": 500, \"item\": \"家樂福日常用品\"} 。如果找不到，請回傳 {\"amount\": 0, \"item\": \"無法辨識\"}。";
+
+  var payload = {
+    "contents": [{
+      "role": "user",
+      "parts": [
+        { "text": prompt },
+        { "inlineData": { "mimeType": mimeType, "data": base64Data } }
+      ]
+    }]
+  };
+
+  var options = {
+    'method': 'post',
+    'contentType': 'application/json',
+    'payload': JSON.stringify(payload),
+    'muteHttpExceptions': true
+  };
+
+  var response = UrlFetchApp.fetch(url, options);
+  var json = JSON.parse(response.getContentText());
+
+  if (response.getResponseCode() !== 200) {
+    throw new Error("AI API 請求失敗: " + (json.error ? json.error.message : "未知錯誤"));
+  }
+
+  var textResponse = json.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+  var cleanJson = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
+
+  try {
+    return JSON.parse(cleanJson);
+  } catch(e) {
+    throw new Error("無法解析 AI 回傳結果");
+  }
+}

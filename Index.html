@@ -312,7 +312,7 @@
                 return `${d.getMonth() + 1}/${d.getDate()} ${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
             };
 
-            // AI 照片辨識
+            // AI 照片辨識 (改為呼叫後端 API)
             const handleImageUpload = async (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
@@ -329,33 +329,24 @@
                     const base64Data = base64Image.split(',')[1];
                     const mimeType = file.type || "image/jpeg";
 
-                    // ⚠️ 請在這裡填入你申請的 Gemini API Key ⚠️
-                    const apiKey = "";
+                    if (typeof google === 'undefined') {
+                        throw new Error("無法連線到 Google 後端，請確保程式已發佈至 Apps Script。");
+                    }
 
-                    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
-                    const prompt = `你是一個專業的記帳助手。請辨識這張收據或發票的照片。找出『總金額』與『最可能的消費項目/店名』。請嚴格以 JSON 格式回傳，且不要包含 markdown 標籤，格式必須完全如： {"amount": 500, "item": "家樂福日常用品"} 。如果找不到，請回傳 {"amount": 0, "item": "無法辨識"}。`;
-
-                    const response = await fetch(url, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            contents: [{ role: "user", parts: [{ text: prompt }, { inlineData: { mimeType: mimeType, data: base64Data } }] }]
-                        })
+                    // 呼叫 GAS 後端的 analyzeReceipt 函式
+                    const result = await new Promise((resolve, reject) => {
+                        google.script.run
+                            .withSuccessHandler(resolve)
+                            .withFailureHandler(reject)
+                            .analyzeReceipt(base64Data, mimeType);
                     });
-
-                    if (!response.ok) throw new Error('API 請求失敗');
-
-                    const data = await response.json();
-                    const textResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
-                    let cleanJson = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
-                    const result = JSON.parse(cleanJson);
 
                     if (result.amount > 0) setAmount(result.amount.toString());
                     if (result.item && result.item !== "無法辨識") setDescription(result.item);
 
                 } catch (error) {
                     console.error("AI 辨識錯誤:", error);
-                    alert("辨識失敗，請稍後手動輸入。");
+                    alert("辨識失敗: " + (error.message || error) + "\n\n請稍後手動輸入。");
                 } finally {
                     setIsRecognizing(false);
                     if (fileInputRef.current) fileInputRef.current.value = '';
