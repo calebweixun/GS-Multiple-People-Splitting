@@ -1,10 +1,14 @@
 /**
- * 1. 提供網頁畫面
+ * 1. 提供網頁畫面 (並允許被 iframe 嵌入)
  */
-function doGet() {
-  return HtmlService.createHtmlOutputFromFile('Index')
+function doGet(e) {
+  var htmlOutput = HtmlService.createHtmlOutputFromFile('Index')
     .setTitle('閃電記帳 - 多人版')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
+    
+  // 允許此網頁被嵌入到 GitHub Pages 的 iframe 中
+  htmlOutput.setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  return htmlOutput;
 }
 
 /**
@@ -18,31 +22,73 @@ function setupSheet() {
   if (!logSheet) {
     logSheet = ss.insertSheet('app_log');
     logSheet.appendRow(['id', 'amount', 'description', 'paidBy', 'splitType', 'date', 'sharesJson']);
-    var logHeader = logSheet.getRange(1, 1, 1, 7);
-    logHeader.setFontWeight('bold').setBackground('#f3f4f6');
+    logSheet.getRange(1, 1, 1, 7).setFontWeight('bold').setBackground('#f3f4f6');
     logSheet.setFrozenRows(1);
   }
 
-  // 初始化 app_config (設定/人員)
+  // 初始化 app_config (人員名單)
   var configSheet = ss.getSheetByName('app_config');
   if (!configSheet) {
     configSheet = ss.insertSheet('app_config');
     configSheet.appendRow(['userId', 'userName']);
     configSheet.appendRow(['u1', '勛']);
     configSheet.appendRow(['u2', '孟']);
-    var configHeader = configSheet.getRange(1, 1, 1, 2);
-    configHeader.setFontWeight('bold').setBackground('#f3f4f6');
+    configSheet.getRange(1, 1, 1, 2).setFontWeight('bold').setBackground('#f3f4f6');
     configSheet.setFrozenRows(1);
+  }
+
+  // 初始化 app_settings (系統設定與密碼)
+  var settingsSheet = ss.getSheetByName('app_settings');
+  if (!settingsSheet) {
+    settingsSheet = ss.insertSheet('app_settings');
+    settingsSheet.appendRow(['Key', 'Value']);
+    settingsSheet.appendRow(['PASSWORD', '8888']); // 預設密碼為 8888
+    settingsSheet.getRange(1, 1, 1, 2).setFontWeight('bold').setBackground('#f3f4f6');
+    settingsSheet.setFrozenRows(1);
+  }
+
+  // 初始化 app_audit (操作紀錄)
+  var auditSheet = ss.getSheetByName('app_audit');
+  if (!auditSheet) {
+    auditSheet = ss.insertSheet('app_audit');
+    auditSheet.appendRow(['時間', '操作人', '動作', '詳細內容']);
+    auditSheet.getRange(1, 1, 1, 4).setFontWeight('bold').setBackground('#f3f4f6');
+    auditSheet.setFrozenRows(1);
   }
 }
 
 /**
- * 3. 取得初始化資料 (包含使用者與歷史紀錄)
+ * 內部函數：驗證密碼
  */
-function getInitialData() {
+function verifyPassword(pwd) {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('app_settings');
+  if (!sheet) return true; // 尚未設定則放行
+  var data = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][0] === 'PASSWORD') {
+      return data[i][1].toString() === (pwd || '').toString();
+    }
+  }
+  return true; 
+}
+
+/**
+ * 內部函數：寫入操作紀錄 (Audit Log)
+ */
+function logAudit(operator, action, details) {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('app_audit');
+  if (sheet) {
+    sheet.appendRow([new Date().toISOString(), operator, action, details]);
+  }
+}
+
+/**
+ * 3. 取得初始化資料 
+ */
+function getInitialData(pwd) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   
-  // 讀取 Users
+  // 先取得人員名單 (登入畫面需要顯示人名)
   var configSheet = ss.getSheetByName('app_config');
   var usersData = configSheet.getDataRange().getValues();
   var users = [];
@@ -52,7 +98,12 @@ function getInitialData() {
     }
   }
 
-  // 讀取 Transactions
+  // 檢查密碼，錯誤則只回傳人員名單並擋下紀錄讀取
+  if (!verifyPassword(pwd)) {
+    return { users: users, error: "AUTH_FAILED" };
+  }
+
+  // 密碼正確，讀取歷史紀錄
   var logSheet = ss.getSheetByName('app_log');
   var logData = logSheet.getDataRange().getValues();
   var transactions = [];
@@ -70,53 +121,37 @@ function getInitialData() {
       date: new Date(row[5]).toISOString()
     };
     
-    // 解析 JSON 分攤資料
     if (row[6]) {
-      try {
-        tx.shares = JSON.parse(row[6]);
-      } catch(e) {
-        tx.shares = {};
-      }
+      try { tx.shares = JSON.parse(row[6]); } catch(e) { tx.shares = {}; }
     }
-    
     transactions.push(tx);
   }
   
-  return {
-    users: users,
-    transactions: transactions.reverse() // 最新在前
-  };
+  return { users: users, transactions: transactions.reverse() };
 }
 
 /**
  * 4. 新增一筆紀錄
  */
-function addTransaction(tx) {
+function addTransaction(pwd, operatorName, tx) {
+  if (!verifyPassword(pwd)) throw new Error("AUTH_FAILED");
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('app_log');
   
-  // 將 shares 物件轉為 JSON 字串
   var sharesJson = '';
   if ((tx.splitType === 'custom' || tx.splitType === 'settlement') && tx.shares) {
     sharesJson = JSON.stringify(tx.shares);
   }
   
-  sheet.appendRow([
-    tx.id,
-    tx.amount,
-    tx.description,
-    tx.paidBy,
-    tx.splitType,
-    tx.date,
-    sharesJson
-  ]);
-  
+  sheet.appendRow([tx.id, tx.amount, tx.description, tx.paidBy, tx.splitType, tx.date, sharesJson]);
+  logAudit(operatorName, '新增', tx.description + ' ($' + tx.amount + ')');
   return true;
 }
 
 /**
  * 5. 更新一筆紀錄
  */
-function updateTransaction(tx) {
+function updateTransaction(pwd, operatorName, tx) {
+  if (!verifyPassword(pwd)) throw new Error("AUTH_FAILED");
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('app_log');
   var data = sheet.getDataRange().getValues();
   
@@ -126,15 +161,8 @@ function updateTransaction(tx) {
       if ((tx.splitType === 'custom' || tx.splitType === 'settlement') && tx.shares) {
         sharesJson = JSON.stringify(tx.shares);
       }
-      // ID 位於第1欄，我們從第2欄開始更新後續的6個欄位
-      sheet.getRange(i + 1, 2, 1, 6).setValues([[
-        tx.amount,
-        tx.description,
-        tx.paidBy,
-        tx.splitType,
-        tx.date,
-        sharesJson
-      ]]);
+      sheet.getRange(i + 1, 2, 1, 6).setValues([[tx.amount, tx.description, tx.paidBy, tx.splitType, tx.date, sharesJson]]);
+      logAudit(operatorName, '修改', tx.description + ' ($' + tx.amount + ')');
       return true;
     }
   }
@@ -144,13 +172,16 @@ function updateTransaction(tx) {
 /**
  * 6. 刪除一筆紀錄
  */
-function deleteTransaction(id) {
+function deleteTransaction(pwd, operatorName, id) {
+  if (!verifyPassword(pwd)) throw new Error("AUTH_FAILED");
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('app_log');
   var data = sheet.getDataRange().getValues();
   
   for (var i = 1; i < data.length; i++) {
     if (data[i][0].toString() === id) {
+      var desc = data[i][2]; // 記錄被刪除的項目名稱
       sheet.deleteRow(i + 1);
+      logAudit(operatorName, '刪除', '移除了紀錄: ' + desc);
       return true;
     }
   }
@@ -160,9 +191,11 @@ function deleteTransaction(id) {
 /**
  * 7. 新增使用者
  */
-function addUser(user) {
+function addUser(pwd, operatorName, user) {
+  if (!verifyPassword(pwd)) throw new Error("AUTH_FAILED");
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('app_config');
   sheet.appendRow([user.id, user.name]);
+  logAudit(operatorName, '設定', '新增成員: ' + user.name);
   return true;
 }
 
