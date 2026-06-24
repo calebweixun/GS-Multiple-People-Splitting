@@ -1,51 +1,63 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-TW">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
     <title>閃電記帳</title>
 
     <!-- 針對 iOS PWA 的設定，讓加入主畫面時看起來像原生 App -->
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="閃電記帳">
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+    />
+    <meta name="apple-mobile-web-app-title" content="閃電記帳" />
+    <link
+      rel="icon"
+      href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="%234f46e5"/><path d="M36 6 14 36h16l-3 22 23-32H34z" fill="white"/></svg>'
+    />
 
     <style>
-        body,
-        html {
-            margin: 0;
-            padding: 0;
-            height: 100%;
-            overflow: hidden;
-            /* 防止外層出現捲軸 */
-            background-color: #4f46e5;
-            /* 使用你 App 頂部的靛藍色，過渡更自然 */
-        }
+      body,
+      html {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        overflow: hidden;
+        /* 防止外層出現捲軸 */
+        background-color: #4f46e5;
+        /* 使用你 App 頂部的靛藍色，過渡更自然 */
+      }
 
-        .iframe-container {
-            position: absolute;
-            top: -26px;
-            /* 關鍵：把 GAS 頂部橫幅推到畫面外 (大約 26px~30px) */
-            left: 0;
-            width: 100%;
-            height: calc(100% + 26px);
-            /* 把高度補回來，避免底部被切掉 */
-        }
+      .iframe-container {
+        position: absolute;
+        top: -26px;
+        /* 關鍵：把 GAS 頂部橫幅推到畫面外 (大約 26px~30px) */
+        left: 0;
+        width: 100%;
+        height: calc(100% + 26px);
+        /* 把高度補回來，避免底部被切掉 */
+      }
 
-        iframe {
-            width: 100%;
-            height: 100%;
-            border: none;
-        }
+      iframe {
+        width: 100%;
+        height: 100%;
+        border: none;
+      }
     </style>
-</head>
+  </head>
 
-<body>
+  <body>
     <div class="iframe-container">
-        <!-- ⚠️ 把下面 src 換成你部署出來的 GAS 網頁應用程式網址 -->
-        <iframe src="https://script.google.com/macros/s/AKfycbymjvHliizU37jZqQV8TxT1axSCgVDjRaWAekkGMMslZhmAB7t-zBfH8UCHE08bJeogiQ/exec"></iframe>
+      <!-- ⚠️ 把下面 src 換成你部署出來的 GAS 網頁應用程式網址 -->
+      <iframe
+        title="閃電記帳"
+        src="https://script.google.com/macros/s/AKfycbymjvHliizU37jZqQV8TxT1axSCgVDjRaWAekkGMMslZhmAB7t-zBfH8UCHE08bJeogiQ/exec"
+      ></iframe>
     </div>
-</body>
-
+  </body>
 </html>

@@ -9,7 +9,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.26.10/babel.min.js"></script>
   <style>
     /* 核心修正：鎖死外層，防止整個網頁滑動，打造原生 App 體驗 */
     html,
@@ -41,7 +41,7 @@
 <body class="bg-slate-50 text-slate-800 font-sans antialiased">
   <div id="root"></div>
 
-  <script type="text/babel">
+  <script type="text/babel" data-presets="env,react">
     const { useState, useRef, useEffect } = React;
 
     const safeEvaluate = (str) => {
